@@ -86,8 +86,15 @@
       tags: locales
 
     - name: Сгенерировать отсутствующую локаль en_US.UTF-8
-      ansible.builtin.command: /usr/sbin/locale-gen en_US.UTF-8
+      ansible.builtin.command: /usr/sbin/locale-gen
       when: locale_configuration.changed or 'en_US.utf8' not in available_locales.stdout_lines
+      tags: locales
+
+    - name: Проверить доступность локали после генерации
+      ansible.builtin.command: /usr/bin/locale -a
+      register: generated_locales
+      changed_when: false
+      failed_when: "'en_US.utf8' not in generated_locales.stdout_lines"
       tags: locales
 
     - name: Создать пользователя Ubuntu admin
