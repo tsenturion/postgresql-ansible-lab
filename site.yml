@@ -23,6 +23,7 @@
           - sudo
           - openssh-server
           - netplan.io
+          - locales
           - acl
           - build-essential
           - pkg-config
@@ -69,6 +70,25 @@
         path: /etc/hosts
         regexp: '^127\.0\.1\.1\s'
         line: '127.0.1.1 {{ node_hostname }}'
+
+    - name: Проверить установленные системные локали
+      ansible.builtin.command: /usr/bin/locale -a
+      changed_when: false
+      register: available_locales
+      tags: locales
+
+    - name: Включить генерацию локали, указанной установщиком Ubuntu
+      ansible.builtin.lineinfile:
+        path: /etc/locale.gen
+        regexp: '^#?\s*en_US.UTF-8\s+UTF-8\s*$'
+        line: en_US.UTF-8 UTF-8
+      register: locale_configuration
+      tags: locales
+
+    - name: Сгенерировать отсутствующую локаль en_US.UTF-8
+      ansible.builtin.command: /usr/sbin/locale-gen en_US.UTF-8
+      when: locale_configuration.changed or 'en_US.utf8' not in available_locales.stdout_lines
+      tags: locales
 
     - name: Создать пользователя Ubuntu admin
       ansible.builtin.user:
