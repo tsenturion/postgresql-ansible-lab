@@ -79,7 +79,7 @@ sudo hostnamectl set-hostname master1
 
 ```bash
 sudo apt update
-sudo apt install -y git ansible-core
+sudo apt install -y --no-install-recommends git ansible-core
 git clone https://github.com/tsenturion/postgresql-ansible-lab.git
 cd postgresql-ansible-lab
 cp local.example.yml local.yml

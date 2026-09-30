@@ -382,7 +382,7 @@ sudo sed -i -E \
   /etc/apt/sources.list.d/ubuntu.sources
 echo 'Acquire::ForceIPv4 "true";' | sudo tee /etc/apt/apt.conf.d/99-lab-ipv4 >/dev/null
 sudo apt update
-sudo apt install -y git ansible-core
+sudo apt install -y --no-install-recommends git ansible-core
 git clone https://github.com/tsenturion/postgresql-ansible-lab.git
 cd postgresql-ansible-lab
 cp local-kafka.example.yml local-kafka.yml
