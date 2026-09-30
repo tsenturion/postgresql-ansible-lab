@@ -156,6 +156,7 @@
     - name: Проверить первичную настройку идентификаторов клона
       ansible.builtin.stat:
         path: /var/lib/postgresql-ansible-lab/clone-identity
+        get_checksum: false
       register: clone_identity
 
     - name: Создать отдельные идентификатор машины и ключи SSH для клона
@@ -279,6 +280,7 @@
     - name: Проверить наличие сервера и файлов расширений
       ansible.builtin.stat:
         path: '{{ item }}'
+        get_checksum: false
       loop: "{{ [postgres_prefix + '/bin/postgres'] + (postgres_extensions | map('regex_replace', '^(.*)$', postgres_prefix + '/share/extension/\\1.control') | list) }}"
       register: installed_components
 
@@ -307,6 +309,7 @@
         - name: Проверить наличие ранее установленной службы
           ansible.builtin.stat:
             path: /etc/systemd/system/postgresql-18.service
+            get_checksum: false
           register: existing_service
         - name: Остановить PostgreSQL перед заменой программных файлов
           ansible.builtin.systemd_service:

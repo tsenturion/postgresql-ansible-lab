@@ -238,3 +238,7 @@ sudo -u postgres /opt/postgresql/bin/psql -d postgres -c 'SHOW shared_preload_li
 - `templates/` — конфигурации сети, SSH и PostgreSQL;
 - `verify.sql` — проверка пяти расширений и Python-библиотек;
 - `postgresql-18.6.tar.gz` — исходный архив PostgreSQL, предоставленный для курса.
+
+## Проверка на реальной ВМ
+
+Развёртывание проверено на полном клоне Ubuntu Server 26.04.1: PostgreSQL 18.6 установлен, пять расширений работают, служба запускается после перезагрузки. Повторный запуск плейбука без изменения настроек завершился с `changed=0` и `failed=0`. С Windows проверены SSH по ключу, SFTP root по паролю и подключение PostgreSQL к `192.168.0.33:5432` с ролью и базой `postgres`.
