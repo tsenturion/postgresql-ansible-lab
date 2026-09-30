@@ -21,6 +21,12 @@
         dest: /etc/apt/sources.list.d/ubuntu.sources
         mode: '0644'
 
+    - name: Использовать IPv4 для загрузки пакетов Ubuntu
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/99-lab-ipv4
+        content: "Acquire::ForceIPv4 \"true\";\n"
+        mode: '0644'
+
     - name: Установить Java и компоненты настройки ноды
       ansible.builtin.apt:
         update_cache: true
@@ -54,13 +60,31 @@
         state: directory
         mode: '0755'
 
-    - name: Скачать готовый дистрибутив Kafka с зеркала Яндекса
-      ansible.builtin.get_url:
-        url: '{{ kafka_download_mirror }}/{{ kafka_version }}/kafka_{{ kafka_scala_version }}-{{ kafka_version }}.tgz'
-        dest: '{{ kafka_archive }}'
-        force: false
-        mode: '0644'
-        timeout: 300
+    - name: Скачать готовый дистрибутив Kafka с зеркала Яндекса по IPv4
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/curl
+          - --ipv4
+          - --fail
+          - --location
+          - --retry
+          - '3'
+          - --connect-timeout
+          - '15'
+          - --max-time
+          - '600'
+          - --continue-at
+          - '-'
+          - --output
+          - '{{ kafka_archive }}.part'
+          - '{{ kafka_download_mirror }}/{{ kafka_version }}/kafka_{{ kafka_scala_version }}-{{ kafka_version }}.tgz'
+        creates: '{{ kafka_archive }}'
+      register: kafka_download
+
+    - name: Завершить сохранение полностью скачанного архива
+      ansible.builtin.command:
+        argv: ['/usr/bin/mv', '{{ kafka_archive }}.part', '{{ kafka_archive }}']
+      when: kafka_download.changed
 
     - name: Подготовить каталог программ Kafka
       ansible.builtin.file:

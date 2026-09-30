@@ -11,7 +11,7 @@ $archiveUrl = "$($Mirror.TrimEnd('/'))/$Version/$archiveName"
 $destinationPath = Join-Path $DestinationDirectory $archiveName
 New-Item -ItemType Directory -Path $DestinationDirectory -Force | Out-Null
 Write-Host "Скачивание готовой Kafka: $archiveUrl"
-& curl.exe --fail --location --retry 3 --continue-at - --output $destinationPath $archiveUrl
+& curl.exe --ipv4 --fail --location --retry 3 --continue-at - --output $destinationPath $archiveUrl
 if ($LASTEXITCODE -ne 0) {
     throw "Ошибка скачивания Kafka. Код curl: $LASTEXITCODE"
 }

@@ -32,6 +32,7 @@
 sudo sed -i -E \
   's#https?://([a-z]{2}\.)?archive\.ubuntu\.com/ubuntu/?#https://mirror.yandex.ru/ubuntu/#g; s#https?://security\.ubuntu\.com/ubuntu/?#https://mirror.yandex.ru/ubuntu/#g' \
   /etc/apt/sources.list.d/ubuntu.sources
+echo 'Acquire::ForceIPv4 "true";' | sudo tee /etc/apt/apt.conf.d/99-lab-ipv4 >/dev/null
 sudo apt update
 sudo apt install -y git ansible-core
 git clone https://github.com/tsenturion/postgresql-ansible-lab.git
