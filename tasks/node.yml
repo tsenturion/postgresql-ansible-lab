@@ -1,0 +1,181 @@
+- name: Переименовать ноду
+  ansible.builtin.hostname:
+    name: '{{ node_hostname }}'
+    use: systemd
+
+- name: Обновить локальное разрешение имени ноды
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^127\.0\.1\.1\s'
+    line: '127.0.1.1 {{ node_hostname }}'
+
+- name: Проверить установленные системные локали
+  ansible.builtin.command: /usr/bin/locale -a
+  changed_when: false
+  register: available_locales
+  tags: locales
+
+- name: Включить генерацию локали, указанной установщиком Ubuntu
+  ansible.builtin.lineinfile:
+    path: /etc/locale.gen
+    regexp: '^#?\s*en_US.UTF-8\s+UTF-8\s*$'
+    line: en_US.UTF-8 UTF-8
+  register: locale_configuration
+  tags: locales
+
+- name: Сгенерировать отсутствующую локаль en_US.UTF-8
+  ansible.builtin.command: /usr/sbin/locale-gen
+  when: locale_configuration.changed or 'en_US.utf8' not in available_locales.stdout_lines
+  tags: locales
+
+- name: Проверить доступность локали после генерации
+  ansible.builtin.command: /usr/bin/locale -a
+  register: generated_locales
+  changed_when: false
+  failed_when: "'en_US.utf8' not in generated_locales.stdout_lines"
+  tags: locales
+
+- name: Создать пользователя Ubuntu admin
+  ansible.builtin.user:
+    name: admin
+    shell: /bin/bash
+    groups: sudo
+    append: true
+    password: "{{ admin_password | password_hash('sha512', 'pgLabAdmin2026') }}"
+  no_log: true
+
+- name: Установить учебный пароль root
+  ansible.builtin.user:
+    name: root
+    password: "{{ root_password | password_hash('sha512', 'pgLabRoot2026') }}"
+  no_log: true
+
+- name: Разрешить admin выполнять sudo без пароля
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/90-lab-admin
+    content: "admin ALL=(ALL) NOPASSWD: ALL\n"
+    owner: root
+    group: root
+    mode: '0440'
+    validate: /usr/sbin/visudo -cf %s
+
+- name: Создать каталоги ключей SSH
+  ansible.builtin.file:
+    path: '{{ item.home }}/.ssh'
+    state: directory
+    owner: '{{ item.user }}'
+    group: '{{ item.user }}'
+    mode: '0700'
+  loop:
+    - { user: admin, home: /home/admin }
+    - { user: root, home: /root }
+    - { user: ubuntu, home: /home/ubuntu }
+
+- name: Добавить открытые ключи Windows в authorized_keys
+  ansible.builtin.blockinfile:
+    path: '{{ item.home }}/.ssh/authorized_keys'
+    create: true
+    owner: '{{ item.user }}'
+    group: '{{ item.user }}'
+    mode: '0600'
+    marker: '# {mark} КЛЮЧИ УЧЕБНОЙ НОДЫ'
+    block: "{{ ssh_public_keys | join('\n') }}"
+  loop:
+    - { user: admin, home: /home/admin }
+    - { user: root, home: /root }
+    - { user: ubuntu, home: /home/ubuntu }
+
+- name: Создать каталог состояния первичной настройки клона
+  ansible.builtin.file:
+    path: /var/lib/postgresql-ansible-lab
+    state: directory
+    mode: '0755'
+
+- name: Проверить первичную настройку идентификаторов клона
+  ansible.builtin.stat:
+    path: /var/lib/postgresql-ansible-lab/clone-identity
+    get_checksum: false
+  register: clone_identity
+
+- name: Создать отдельные идентификатор машины и ключи SSH для клона
+  when: not clone_identity.stat.exists
+  block:
+    - name: Обновить machine-id клона
+      ansible.builtin.shell: |
+        rm -f /etc/machine-id /var/lib/dbus/machine-id
+        systemd-machine-id-setup
+        ln -s /etc/machine-id /var/lib/dbus/machine-id
+      args:
+        executable: /bin/bash
+    - name: Найти унаследованные ключи сервера SSH
+      ansible.builtin.find:
+        paths: /etc/ssh
+        patterns: 'ssh_host_*'
+        file_type: file
+      register: inherited_host_keys
+    - name: Удалить унаследованные ключи сервера SSH
+      ansible.builtin.file:
+        path: '{{ item.path }}'
+        state: absent
+      loop: '{{ inherited_host_keys.files }}'
+    - name: Создать собственные ключи сервера SSH
+      ansible.builtin.command: /usr/bin/ssh-keygen -A
+    - name: Отметить завершение первичной настройки идентификаторов
+      ansible.builtin.copy:
+        dest: /var/lib/postgresql-ansible-lab/clone-identity
+        content: "Идентификаторы этого клона созданы.\n"
+        mode: '0644'
+  # Перезапуск SSH применяется после проверки конфигурации ниже.
+
+- name: Настроить вход SSH по ключу и паролю для учебной ВМ
+  ansible.builtin.template:
+    src: templates/sshd.conf.j2
+    dest: /etc/ssh/sshd_config.d/00-lab.conf
+    mode: '0644'
+  register: ssh_configuration
+
+- name: Проверить конфигурацию SSH
+  ansible.builtin.command: /usr/sbin/sshd -t
+  changed_when: false
+
+- name: Включить SSH и перечитать настройки и ключи
+  ansible.builtin.systemd_service:
+    name: ssh
+    enabled: true
+    state: "{{ 'restarted' if ssh_configuration.changed or not clone_identity.stat.exists else 'started' }}"
+
+- name: Найти предыдущие настройки Netplan
+  ansible.builtin.find:
+    paths: /etc/netplan
+    patterns: ['*.yaml', '*.yml']
+  register: previous_netplan
+
+- name: Удалить конфликтующие настройки Netplan на учебной ноде
+  ansible.builtin.file:
+    path: '{{ item.path }}'
+    state: absent
+  loop: '{{ previous_netplan.files }}'
+  when: item.path != (node_netplan_path | default('/etc/netplan/90-lab.yaml'))
+  register: removed_netplan
+
+- name: Отключить повторное создание сетевых настроек cloud-init
+  ansible.builtin.copy:
+    dest: /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
+    content: "network: {config: disabled}\n"
+    mode: '0644'
+
+- name: Настроить NAT с DHCP и мост со статическим адресом
+  ansible.builtin.template:
+    src: templates/netplan.yml.j2
+    dest: "{{ node_netplan_path | default('/etc/netplan/90-lab.yaml') }}"
+    mode: '0600'
+  register: netplan_configuration
+
+- name: Проверить Netplan
+  ansible.builtin.command: /usr/sbin/netplan generate
+  changed_when: false
+
+- name: Применить Netplan
+  ansible.builtin.command: /usr/sbin/netplan apply
+  when: netplan_configuration.changed or removed_netplan.changed
+

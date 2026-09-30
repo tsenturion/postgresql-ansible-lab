@@ -1,0 +1,5 @@
+# Скопировать в local-kafka.yml и вставить открытый ключ Windows.
+node_hostname: master2
+bridge_address: 192.168.0.34/24
+ssh_public_keys:
+  - 'ssh-ed25519 ВСТАВИТЬ_ОТКРЫТЫЙ_КЛЮЧ'

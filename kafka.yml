@@ -1,0 +1,228 @@
+- name: Подготовить master2 и установить готовый дистрибутив Kafka
+  hosts: all
+  become: true
+  vars_files:
+    - kafka-settings.yml
+  tasks:
+    - name: Проверить Ubuntu, интерфейсы и наличие ключа Windows
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution == 'Ubuntu'
+          - ansible_facts.architecture == 'x86_64'
+          - nat_interface in ansible_facts.interfaces
+          - bridge_interface in ansible_facts.interfaces
+          - ssh_public_keys | length > 0
+          - kafka_node_id | int >= 0
+        fail_msg: Нужны Ubuntu x86_64, два сетевых адаптера и открытый ключ в local-kafka.yml.
+
+    - name: Настроить зеркало Яндекса для пакетов Ubuntu
+      ansible.builtin.template:
+        src: templates/ubuntu.sources.j2
+        dest: /etc/apt/sources.list.d/ubuntu.sources
+        mode: '0644'
+
+    - name: Установить Java и компоненты настройки ноды
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+        lock_timeout: 300
+        name:
+          - '{{ kafka_java_package }}'
+          - sudo
+          - openssh-server
+          - netplan.io
+          - locales
+          - acl
+          - ca-certificates
+          - curl
+          - tar
+        state: present
+
+    - name: Выполнить общую настройку Ubuntu, SSH и сети
+      ansible.builtin.import_tasks: tasks/node.yml
+
+    - name: Создать системного пользователя Kafka
+      ansible.builtin.user:
+        name: kafka
+        system: true
+        home: /var/lib/kafka
+        shell: /usr/sbin/nologin
+
+    - name: Подготовить каталог архива готового дистрибутива
+      ansible.builtin.file:
+        path: /usr/local/src
+        state: directory
+        mode: '0755'
+
+    - name: Скачать готовый дистрибутив Kafka с зеркала Яндекса
+      ansible.builtin.get_url:
+        url: '{{ kafka_download_mirror }}/{{ kafka_version }}/kafka_{{ kafka_scala_version }}-{{ kafka_version }}.tgz'
+        dest: '{{ kafka_archive }}'
+        force: false
+        mode: '0644'
+        timeout: 300
+
+    - name: Подготовить каталог программ Kafka
+      ansible.builtin.file:
+        path: '{{ kafka_install_dir }}'
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Распаковать готовую Kafka без компиляции
+      ansible.builtin.unarchive:
+        src: '{{ kafka_archive }}'
+        dest: '{{ kafka_install_dir }}'
+        remote_src: true
+        extra_opts: ['--strip-components=1']
+        owner: root
+        group: root
+        creates: '{{ kafka_install_dir }}/bin/kafka-server-start.sh'
+
+    - name: Создать постоянную ссылку на установленную Kafka
+      ansible.builtin.file:
+        src: '{{ kafka_install_dir }}'
+        dest: '{{ kafka_home }}'
+        state: link
+      register: kafka_programs
+
+    - name: Создать каталоги конфигурации, данных, метаданных и журналов
+      ansible.builtin.file:
+        path: '{{ item.path }}'
+        state: directory
+        owner: kafka
+        group: kafka
+        mode: '{{ item.mode }}'
+      loop:
+        - { path: /etc/kafka, mode: '0750' }
+        - { path: '{{ kafka_data }}', mode: '0750' }
+        - { path: '{{ kafka_metadata }}', mode: '0750' }
+        - { path: /var/log/kafka, mode: '0750' }
+
+    - name: Настроить одиночную ноду broker и controller в KRaft
+      ansible.builtin.template:
+        src: templates/kafka-server.properties.j2
+        dest: /etc/kafka/server.properties
+        owner: root
+        group: kafka
+        mode: '0640'
+      register: kafka_configuration
+
+    - name: Проверить форматирование каталога метаданных
+      ansible.builtin.stat:
+        path: '{{ kafka_metadata }}/meta.properties'
+        get_checksum: false
+      register: kafka_metadata_state
+
+    - name: Проверить форматирование каталога данных
+      ansible.builtin.stat:
+        path: '{{ kafka_data }}/meta.properties'
+        get_checksum: false
+      register: kafka_data_state
+
+    - name: Проверить согласованность состояния каталогов Kafka
+      ansible.builtin.assert:
+        that: kafka_metadata_state.stat.exists == kafka_data_state.stat.exists
+        fail_msg: Только один каталог Kafka содержит meta.properties. Требуется восстановить конфигурацию или данные.
+
+    - name: Инициализировать новый кластер только в пустых каталогах
+      when: not kafka_metadata_state.stat.exists
+      block:
+        - name: Проверить отсутствие ранее сохранённых данных
+          ansible.builtin.find:
+            paths: ['{{ kafka_data }}', '{{ kafka_metadata }}']
+            file_type: any
+            hidden: true
+          register: existing_kafka_data
+        - name: Разрешить форматирование только пустых каталогов
+          ansible.builtin.assert:
+            that: existing_kafka_data.matched == 0
+            fail_msg: Каталоги не пусты. Автоматическое форматирование существующих данных запрещено.
+        - name: Получить идентификатор нового кластера
+          ansible.builtin.command: '{{ kafka_home }}/bin/kafka-storage.sh random-uuid'
+          become_user: kafka
+          environment:
+            LOG_DIR: /var/log/kafka
+          register: kafka_cluster_id
+          changed_when: false
+        - name: Отформатировать данные и метаданные KRaft
+          ansible.builtin.command:
+            argv:
+              - '{{ kafka_home }}/bin/kafka-storage.sh'
+              - format
+              - --standalone
+              - --cluster-id
+              - '{{ kafka_cluster_id.stdout | trim }}'
+              - --config
+              - /etc/kafka/server.properties
+          become_user: kafka
+          environment:
+            LOG_DIR: /var/log/kafka
+
+    - name: Добавить утилиты Kafka в PATH интерактивных сеансов
+      ansible.builtin.copy:
+        dest: /etc/profile.d/kafka.sh
+        mode: '0644'
+        content: |
+          export KAFKA_HOME={{ kafka_home }}
+          export PATH=$KAFKA_HOME/bin:$PATH
+
+    - name: Установить службу Kafka
+      ansible.builtin.template:
+        src: templates/kafka.service.j2
+        dest: /etc/systemd/system/kafka.service
+        mode: '0644'
+      register: kafka_service
+
+    - name: Настроить очистку штатных журналов Kafka через 30 дней
+      ansible.builtin.copy:
+        dest: /etc/tmpfiles.d/kafka.conf
+        content: "d /var/log/kafka 0750 kafka kafka 30d -\n"
+        mode: '0644'
+
+    - name: Включить штатную очистку журналов
+      ansible.builtin.systemd_service:
+        name: systemd-tmpfiles-clean.timer
+        enabled: true
+        state: started
+
+    - name: Включить и запустить Kafka
+      ansible.builtin.systemd_service:
+        name: kafka
+        enabled: true
+        daemon_reload: '{{ kafka_service.changed }}'
+        state: "{{ 'restarted' if kafka_service.changed or kafka_configuration.changed or kafka_programs.changed else 'started' }}"
+
+    - name: Дождаться порта Kafka
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: '{{ kafka_port }}'
+        timeout: 120
+
+    - name: Проверить доступность API брокера Kafka
+      ansible.builtin.command:
+        argv: ['{{ kafka_home }}/bin/kafka-broker-api-versions.sh', '--bootstrap-server', '127.0.0.1:{{ kafka_port }}']
+      become_user: kafka
+      environment:
+        LOG_DIR: /var/log/kafka
+      changed_when: false
+      register: kafka_api_check
+
+    - name: Проверить наличие адреса моста в ответе брокера
+      ansible.builtin.assert:
+        that: "(kafka_advertised_host + ':' + kafka_port | string) in kafka_api_check.stdout"
+        fail_msg: Брокер должен возвращать клиентам адрес моста из advertised.listeners.
+
+    - name: Проверить состояние метаданных KRaft
+      ansible.builtin.command:
+        argv: ['{{ kafka_home }}/bin/kafka-metadata-quorum.sh', '--bootstrap-server', '127.0.0.1:{{ kafka_port }}', 'describe', '--status']
+      become_user: kafka
+      environment:
+        LOG_DIR: /var/log/kafka
+      changed_when: false
+      register: kafka_quorum_check
+
+    - name: Показать состояние установленной Kafka
+      ansible.builtin.debug:
+        var: kafka_quorum_check.stdout_lines

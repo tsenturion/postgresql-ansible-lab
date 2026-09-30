@@ -1,0 +1,23 @@
+node_hostname: master2
+nat_interface: enp0s3
+bridge_interface: enp0s8
+bridge_address: 192.168.0.34/24
+node_netplan_path: /etc/netplan/01-netcfg.yaml
+admin_password: admin
+root_password: root
+ssh_public_keys: []
+ubuntu_apt_mirror: https://mirror.yandex.ru/ubuntu/
+kafka_download_mirror: https://mirror.yandex.ru/mirrors/apache/kafka
+kafka_version: '4.3.1'
+kafka_scala_version: '2.13'
+kafka_archive: /usr/local/src/kafka_2.13-4.3.1.tgz
+kafka_install_dir: /opt/kafka-4.3.1
+kafka_home: /opt/kafka
+kafka_data: /data/kafka
+kafka_metadata: /data/kafka-metadata
+kafka_node_id: 2
+kafka_port: 9092
+kafka_controller_port: 9093
+kafka_advertised_host: "{{ bridge_address.split('/')[0] }}"
+kafka_java_package: openjdk-25-jre-headless
+kafka_heap_opts: -Xms1g -Xmx1g

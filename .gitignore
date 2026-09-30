@@ -1,5 +1,7 @@
 AGENTS.md
 local.yml
+local-kafka.yml
+*.tgz
 collections/
 __pycache__/
 *.pyc

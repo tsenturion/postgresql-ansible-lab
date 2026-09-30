@@ -1,0 +1,22 @@
+[Unit]
+Description=Apache Kafka {{ kafka_version }} in KRaft mode
+Documentation=https://kafka.apache.org/documentation/
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=kafka
+Group=kafka
+Environment="KAFKA_HEAP_OPTS={{ kafka_heap_opts }}"
+Environment="LOG_DIR=/var/log/kafka"
+ExecStart={{ kafka_home }}/bin/kafka-server-start.sh /etc/kafka/server.properties
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGTERM
+SuccessExitStatus=143
+TimeoutStopSec=120
+LimitNOFILE=100000
+
+[Install]
+WantedBy=multi-user.target
