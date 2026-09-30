@@ -1,0 +1,6 @@
+# Скопировать в local.yml и указать адрес своей сети и открытый ключ Windows.
+node_hostname: master1
+bridge_address: 192.168.0.33/24
+postgres_allowed_subnet: 192.168.0.0/24
+ssh_public_keys:
+  - 'ssh-ed25519 ВСТАВИТЬ_ОТКРЫТЫЙ_КЛЮЧ'

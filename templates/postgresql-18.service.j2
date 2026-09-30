@@ -1,0 +1,17 @@
+[Unit]
+Description=PostgreSQL {{ postgres_version }} database server
+Documentation=https://www.postgresql.org/docs/18/
+After=network.target
+
+[Service]
+Type=notify
+User=postgres
+Group=postgres
+ExecStart={{ postgres_prefix }}/bin/postgres -D {{ postgres_data }}
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+KillSignal=SIGINT
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target

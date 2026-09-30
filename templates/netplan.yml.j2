@@ -1,0 +1,12 @@
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    {{ nat_interface }}:
+      dhcp4: true
+      dhcp6: false
+    {{ bridge_interface }}:
+      dhcp4: false
+      dhcp6: false
+      addresses:
+        - {{ bridge_address }}

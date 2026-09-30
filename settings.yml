@@ -1,0 +1,38 @@
+node_hostname: master1
+nat_interface: enp0s3
+bridge_interface: enp0s8
+bridge_address: 192.168.0.33/24
+postgres_allowed_subnet: 192.168.0.0/24
+admin_password: admin
+root_password: root
+postgres_password: admin
+ssh_public_keys: []
+postgres_version: '18.6'
+postgres_prefix: /opt/postgresql
+postgres_source: /usr/local/src/postgresql-18.6
+postgres_data: /data/postgresql/18/main
+postgres_extensions:
+  - pageinspect
+  - pg_buffercache
+  - pg_stat_statements
+  - dblink
+  - plpython3u
+postgres_configure_flags:
+  - --prefix=/opt/postgresql
+  - --enable-nls
+  - --with-perl
+  - --with-python
+  - --with-tcl
+  - --with-ssl=openssl
+  - --with-gssapi
+  - --with-ldap
+  - --with-pam
+  - --with-systemd
+  - --with-uuid=e2fs
+  - --with-libcurl
+  - --with-libnuma
+  - --with-liburing
+  - --with-libxml
+  - --with-libxslt
+  - --with-lz4
+  - --with-zstd
