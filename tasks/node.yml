@@ -9,6 +9,34 @@
     regexp: '^127\.0\.1\.1\s'
     line: '127.0.1.1 {{ node_hostname }}'
 
+- name: Проверить основной и штатный конфиги синхронизации времени
+  ansible.builtin.stat:
+    path: '{{ item }}'
+    get_checksum: false
+  loop:
+    - /etc/chrony/chrony.conf
+    - /etc/chrony/chrony.conf.dist
+  register: chrony_config_files
+
+- name: Восстановить штатный конфиг Chrony, если основной файл пуст
+  ansible.builtin.copy:
+    src: /etc/chrony/chrony.conf.dist
+    dest: /etc/chrony/chrony.conf
+    remote_src: true
+    owner: root
+    group: root
+    mode: '0644'
+  when:
+    - chrony_config_files.results[1].stat.exists
+    - chrony_config_files.results[0].stat.size | default(0) == 0
+  register: chrony_configuration
+
+- name: Включить синхронизацию времени и применить восстановленный конфиг
+  ansible.builtin.systemd_service:
+    name: chrony
+    enabled: true
+    state: "{{ 'restarted' if chrony_configuration.changed else 'started' }}"
+
 - name: Проверить установленные системные локали
   ansible.builtin.command: /usr/bin/locale -a
   changed_when: false
@@ -178,4 +206,3 @@
 - name: Применить Netplan
   ansible.builtin.command: /usr/sbin/netplan apply
   when: netplan_configuration.changed or removed_netplan.changed
-

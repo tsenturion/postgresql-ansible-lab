@@ -96,9 +96,24 @@ Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 ```bash
 echo 'Acquire::ForceIPv4 "true";' | sudo tee /etc/apt/apt.conf.d/99-lab-ipv4 >/dev/null
 sudo apt update
-sudo apt install -y openjdk-25-jre-headless openssh-server netplan.io locales curl tar
+sudo apt install -y openjdk-25-jre-headless openssh-server netplan.io locales chrony curl tar
 java -version
 ```
+
+### Синхронизация времени
+
+На базовой Ubuntu конфиг `/etc/chrony/chrony.conf` должен содержать настройки источников времени. Если он пуст, восстановить штатный файл пакета Ubuntu:
+
+```bash
+if [ ! -s /etc/chrony/chrony.conf ] && [ -f /etc/chrony/chrony.conf.dist ]; then
+    sudo cp /etc/chrony/chrony.conf.dist /etc/chrony/chrony.conf
+fi
+sudo systemctl enable --now chrony
+sudo systemctl restart chrony
+chronyc sources
+```
+
+После получения ответа от сервера времени `timedatectl status` показывает `System clock synchronized: yes`. Ansible выполняет такое же восстановление только для пустого конфига.
 
 ### 2. Имя и идентификаторы клона
 
@@ -419,7 +434,7 @@ bash bootstrap-kafka.sh
 
 При запросе sudo ввести пароль `ubuntu`. Скрипт устанавливает недостающие Ansible и `passlib`, задаёт локаль `C.UTF-8` и запускает `kafka.yml` от root через sudo. Для Kafka используются встроенные модули Ansible: коллекция `community.postgresql` не требуется.
 
-Плейбук выполняет этапы ручного варианта: hostname, локаль, отдельные идентификаторы клона, admin/root, sudo, ключи SSH, Netplan, зеркало Ubuntu, Java, загрузка готового дистрибутива, конфигурация Kafka, первичная инициализация KRaft и служба. PostgreSQL на `master2` не устанавливается.
+Плейбук выполняет этапы ручного варианта: hostname, локаль и синхронизацию времени, отдельные идентификаторы клона, admin/root, sudo, ключи SSH, Netplan, зеркало Ubuntu, Java, загрузка готового дистрибутива, конфигурация Kafka, первичная инициализация KRaft и служба. PostgreSQL на `master2` не устанавливается.
 
 Если архив предварительно передан через FileZilla в `/usr/local/src/kafka_2.13-4.3.1.tgz`, скачивание пропускается. Автоматическая загрузка сохраняется сначала в `.part` и после успешного завершения переименовывается; прерванную загрузку можно возобновить повторным запуском.
 

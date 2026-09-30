@@ -37,6 +37,7 @@
           - openssh-server
           - netplan.io
           - locales
+          - chrony
           - acl
           - ca-certificates
           - curl

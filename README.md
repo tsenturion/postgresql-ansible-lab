@@ -136,7 +136,7 @@ bash bootstrap.sh
 
 При запросе sudo ввести пароль `ubuntu`. Обёртка сама ставит недостающую зависимость Python `passlib`, устанавливает коллекцию `community.postgresql` из `requirements.yml` и запускает плейбук от root. Коллекция загружается **до** разбора плейбука: использующие её модули должны быть доступны уже на этом этапе. [Документация Ansible по установке коллекций](https://docs.ansible.com/projects/ansible/latest/collections_guide/collections_installing.html).
 
-Плейбук устанавливает зависимости Ubuntu, создаёт пользователей и ключи, меняет hostname и Netplan, скачивает и распаковывает архив исходников с зеркала Яндекса, собирает PostgreSQL, создаёт кластер и службу. `make world-bin` / `make install-world-bin` включают сервер, contrib и выбранные процедурные языки; отдельная повторная сборка четырёх contrib-модулей при таком способе не требуется. [Сборка PostgreSQL](https://www.postgresql.org/docs/18/install-make.html).
+Плейбук устанавливает зависимости Ubuntu, создаёт пользователей и ключи, меняет hostname и Netplan, восстанавливает пустой конфиг Chrony для синхронизации времени, скачивает и распаковывает архив исходников с зеркала Яндекса, собирает PostgreSQL, создаёт кластер и службу. `make world-bin` / `make install-world-bin` включают сервер, contrib и выбранные процедурные языки; отдельная повторная сборка четырёх contrib-модулей при таком способе не требуется. [Сборка PostgreSQL](https://www.postgresql.org/docs/18/install-make.html).
 
 После установки файлов выполняются эквиваленты:
 

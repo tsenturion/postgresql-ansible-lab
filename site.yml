@@ -24,6 +24,7 @@
           - openssh-server
           - netplan.io
           - locales
+          - chrony
           - acl
           - build-essential
           - pkg-config
