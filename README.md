@@ -212,7 +212,7 @@ bash bootstrap.sh
 Прямая команда запуска после подготовки зависимостей и коллекции:
 
 ```bash
-sudo env ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook site.yml -e @local.yml
+sudo env LANG=C.UTF-8 LC_ALL=C.UTF-8 ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-playbook site.yml -e @local.yml
 ```
 
 Проверки:

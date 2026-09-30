@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export LANG=C.UTF-8
+export LC_ALL=C.UTF-8
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 
 if [[ ! -f local.yml ]]; then
@@ -15,4 +17,4 @@ if ! command -v ansible-playbook >/dev/null || ! /usr/bin/python3 -c 'import pas
 fi
 export ANSIBLE_CONFIG="$PWD/ansible.cfg"
 ansible-galaxy collection install -r requirements.yml -p "$PWD/collections"
-sudo env ANSIBLE_CONFIG="$ANSIBLE_CONFIG" ansible-playbook site.yml -e @local.yml "$@"
+sudo env LANG="$LANG" LC_ALL="$LC_ALL" ANSIBLE_CONFIG="$ANSIBLE_CONFIG" ansible-playbook site.yml -e @local.yml "$@"
