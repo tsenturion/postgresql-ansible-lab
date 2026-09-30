@@ -58,6 +58,7 @@
           - ca-certificates
           - curl
           - tar
+          - bzip2
         state: present
 
     - name: Выполнить общую настройку Ubuntu, SSH и сети
@@ -76,17 +77,42 @@
         state: directory
         mode: '0755'
 
-    - name: Поместить архив из репозитория в каталог исходников
-      ansible.builtin.copy:
-        src: postgresql-18.6.tar.gz
-        dest: /usr/local/src/postgresql-18.6.tar.gz
+    - name: Скачать исходники PostgreSQL с зеркала Яндекса
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/curl
+          - --ipv4
+          - --fail
+          - --location
+          - --retry
+          - '3'
+          - --connect-timeout
+          - '15'
+          - --max-time
+          - '600'
+          - --continue-at
+          - '-'
+          - --output
+          - '{{ postgres_archive }}.part'
+          - '{{ postgres_source_url }}'
+        creates: '{{ postgres_archive }}'
+      register: postgres_download
+
+    - name: Завершить сохранение скачанного архива PostgreSQL
+      ansible.builtin.command:
+        argv: ['/usr/bin/mv', '{{ postgres_archive }}.part', '{{ postgres_archive }}']
+      when: postgres_download.changed
+
+    - name: Назначить владельца архива исходников
+      ansible.builtin.file:
+        path: '{{ postgres_archive }}'
         owner: admin
         group: admin
         mode: '0644'
 
     - name: Распаковать исходники PostgreSQL
       ansible.builtin.unarchive:
-        src: /usr/local/src/postgresql-18.6.tar.gz
+        src: '{{ postgres_archive }}'
         dest: /usr/local/src
         remote_src: true
         owner: admin

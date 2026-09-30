@@ -2,6 +2,9 @@ AGENTS.md
 local.yml
 local-kafka.yml
 *.tgz
+*.tar.gz
+*.tar.bz2
+*.part
 collections/
 __pycache__/
 *.pyc

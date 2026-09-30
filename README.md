@@ -18,7 +18,7 @@
 | SSH без пароля | открытый ключ Windows в `authorized_keys` пользователей ubuntu, admin и root |
 | Адаптер 1 | NAT, `enp0s3`, DHCP |
 | Адаптер 2 | мост, `enp0s8`, `192.168.0.33/24`, без второго шлюза |
-| PostgreSQL | 18.6, сборка из включённого в Git архива |
+| PostgreSQL | 18.6, исходники скачиваются с зеркала Яндекса |
 | Исходники | `/usr/local/src/postgresql-18.6` |
 | Программы | `/opt/postgresql` |
 | Кластер | `/data/postgresql/18/main`, UTF-8, ICU `ru-RU` |
@@ -30,6 +30,19 @@
 | Python | openpyxl и reportlab из пакетов Ubuntu |
 
 `admin` — пользователь Ubuntu для SSH и sudo. Роль `admin` и база `lab` в PostgreSQL не создаются. Файл настроек `lab.conf` — имя файла, а не база данных.
+
+## Источник PostgreSQL
+
+[Зеркало Яндекса](https://mirror.yandex.ru/mirrors/postgresql/pool/main/p/postgresql-18/postgresql-18_18.6.orig.tar.bz2) предоставляет исходники PostgreSQL 18.6 как `postgresql-18_18.6.orig.tar.bz2`. Это исходный архив из репозитория пакетов PostgreSQL; плейбук собирает сервер самостоятельно и не устанавливает готовые пакеты PostgreSQL через APT. После распаковки каталог остаётся `/usr/local/src/postgresql-18.6`.
+
+Адрес и имя локального файла задаются в `settings.yml`: `postgres_source_url` и `postgres_archive`. Их можно переопределить в `local.yml`. Запасной источник — [официальный `.tar.gz`](https://ftp.postgresql.org/pub/source/v18.6/postgresql-18.6.tar.gz); при его выборе задать оба параметра:
+
+```yaml
+postgres_source_url: https://ftp.postgresql.org/pub/source/v18.6/postgresql-18.6.tar.gz
+postgres_archive: /usr/local/src/postgresql-18.6.tar.gz
+```
+
+Для медленной загрузки внутри ВМ предусмотрен `download-postgresql.ps1`, запускаемый в PowerShell на Windows. Затем передать файл через FileZilla в `/usr/local/src` до запуска плейбука. Архивы исключены из Git.
 
 ## 1. Один раз создать базовую ВМ
 
@@ -123,7 +136,7 @@ bash bootstrap.sh
 
 При запросе sudo ввести пароль `ubuntu`. Обёртка сама ставит недостающую зависимость Python `passlib`, устанавливает коллекцию `community.postgresql` из `requirements.yml` и запускает плейбук от root. Коллекция загружается **до** разбора плейбука: использующие её модули должны быть доступны уже на этом этапе. [Документация Ansible по установке коллекций](https://docs.ansible.com/projects/ansible/latest/collections_guide/collections_installing.html).
 
-Плейбук устанавливает зависимости Ubuntu, создаёт пользователей и ключи, меняет hostname и Netplan, распаковывает включённый архив, собирает PostgreSQL, создаёт кластер и службу. `make world-bin` / `make install-world-bin` включают сервер, contrib и выбранные процедурные языки; отдельная повторная сборка четырёх contrib-модулей при таком способе не требуется. [Сборка PostgreSQL](https://www.postgresql.org/docs/18/install-make.html).
+Плейбук устанавливает зависимости Ubuntu, создаёт пользователей и ключи, меняет hostname и Netplan, скачивает и распаковывает архив исходников с зеркала Яндекса, собирает PostgreSQL, создаёт кластер и службу. `make world-bin` / `make install-world-bin` включают сервер, contrib и выбранные процедурные языки; отдельная повторная сборка четырёх contrib-модулей при таком способе не требуется. [Сборка PostgreSQL](https://www.postgresql.org/docs/18/install-make.html).
 
 После установки файлов выполняются эквиваленты:
 
@@ -194,7 +207,7 @@ FileZilla Client → **File → Site Manager → New site**:
 | User | `root` |
 | Password | `root` |
 
-Принять ключ нового сервера при первом подключении к своей ВМ. Дополнительная настройка ключа в FileZilla для входа по паролю не нужна. При необходимости можно вручную передать `.tar.gz` из Downloads в `/usr/local/src`; для этого варианта установки архив уже находится в репозитории и плейбук размещает его сам.
+Принять ключ нового сервера при первом подключении к своей ВМ. Дополнительная настройка ключа в FileZilla для входа по паролю не нужна. При медленной загрузке на ноде можно скачать [исходники с зеркала Яндекса](https://mirror.yandex.ru/mirrors/postgresql/pool/main/p/postgresql-18/postgresql-18_18.6.orig.tar.bz2) на Windows и передать `postgresql-18_18.6.orig.tar.bz2` в `/usr/local/src`. Если файл уже существует, плейбук пропускает его загрузку.
 
 ### DBeaver на Windows
 
@@ -226,7 +239,7 @@ git pull --ff-only
 bash bootstrap.sh
 ```
 
-Существующий кластер не инициализируется повторно. Сервер пересобирается только при отсутствии необходимых компонентов или изменении параметров сборки. Установка этой автоматизации предполагает выделенную учебную ноду: она заменяет её Netplan, pg_hba и учебные настройки PostgreSQL. Архив PostgreSQL находится в корне репозитория; он не скачивается заново при запуске.
+Существующий кластер не инициализируется повторно. Сервер пересобирается только при отсутствии необходимых компонентов или изменении параметров сборки. Установка этой автоматизации предполагает выделенную учебную ноду: она заменяет её Netplan, pg_hba и учебные настройки PostgreSQL. Архив PostgreSQL не хранится в Git. Он скачивается в `/usr/local/src/postgresql-18_18.6.orig.tar.bz2` один раз; повторный запуск использует существующий файл. Незавершённая загрузка сохраняется с суффиксом `.part` и возобновляется при следующем запуске.
 
 Прямая команда запуска после подготовки зависимостей и коллекции:
 
@@ -256,7 +269,9 @@ sudo -u postgres /opt/postgresql/bin/psql -d postgres -c 'SHOW shared_preload_li
 - `requirements.yml` — версия коллекции PostgreSQL;
 - `templates/` — конфигурации сети, SSH и PostgreSQL;
 - `verify.sql` — проверка пяти расширений и Python-библиотек;
-- `postgresql-18.6.tar.gz` — исходный архив PostgreSQL, предоставленный для курса.
+- `download-postgresql.ps1` — загрузка исходников на Windows для ручной передачи через FileZilla;
+- `tasks/node.yml` — общая настройка Ubuntu, SSH и Netplan;
+- `kafka.yml`, `kafka-settings.yml` и `bootstrap-kafka.sh` — установка Kafka на отдельную ноду.
 
 ## Проверка на реальной ВМ
 

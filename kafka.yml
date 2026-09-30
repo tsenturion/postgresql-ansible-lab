@@ -27,13 +27,12 @@
         content: "Acquire::ForceIPv4 \"true\";\n"
         mode: '0644'
 
-    - name: Установить Java и компоненты настройки ноды
+    - name: Установить компоненты настройки ноды
       ansible.builtin.apt:
         update_cache: true
         cache_valid_time: 3600
         lock_timeout: 300
         name:
-          - '{{ kafka_java_package }}'
           - sudo
           - openssh-server
           - netplan.io
@@ -46,6 +45,12 @@
 
     - name: Выполнить общую настройку Ubuntu, SSH и сети
       ansible.builtin.import_tasks: tasks/node.yml
+
+    - name: Установить Java для Kafka
+      ansible.builtin.apt:
+        name: '{{ kafka_java_package }}'
+        state: present
+        lock_timeout: 300
 
     - name: Создать системного пользователя Kafka
       ansible.builtin.user:
