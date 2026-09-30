@@ -12,10 +12,9 @@
 | Компонент | Значение по умолчанию |
 | --- | --- |
 | Имя ноды | `master1` |
-| Исходный пользователь Ubuntu | `ubuntu`, пароль `ubuntu`, создаётся при установке ОС |
-| Дополнительный пользователь Ubuntu | `admin`, пароль `admin`, sudo без пароля |
+| Пользователь Ubuntu для SSH и sudo | `ubuntu`, пароль `ubuntu`, создаётся при установке ОС; sudo без пароля после Ansible |
 | Root Ubuntu | пароль `root`, SSH по паролю и по ключу |
-| SSH без пароля | открытый ключ Windows в `authorized_keys` пользователей ubuntu, admin и root |
+| SSH без пароля | открытый ключ Windows в `authorized_keys` пользователей ubuntu и root |
 | Адаптер 1 | NAT, `enp0s3`, DHCP |
 | Адаптер 2 | мост, `enp0s8`, `192.168.0.33/24`, без второго шлюза |
 | PostgreSQL | 18.6, исходники скачиваются с зеркала Яндекса |
@@ -29,7 +28,7 @@
 | Расширения | pageinspect, pg_buffercache, pg_stat_statements, dblink, plpython3u |
 | Python | openpyxl и reportlab из пакетов Ubuntu |
 
-`admin` — пользователь Ubuntu для SSH и sudo. Роль `admin` и база `lab` в PostgreSQL не создаются. Файл настроек `lab.conf` — имя файла, а не база данных.
+Для SSH и sudo используется пользователь Ubuntu `ubuntu`. SQL-задания выполняются от роли `postgres` в базе `postgres`. Файл настроек `lab.conf` — имя файла.
 
 ## Источник PostgreSQL
 
@@ -86,7 +85,7 @@ cp local.example.yml local.yml
 nano local.yml
 ```
 
-Не нужно вручную настраивать root, admin, SSH, Netplan или PostgreSQL перед запуском. Файл `local.yml` задаёт параметры конкретной ноды и игнорируется Git.
+Не нужно вручную настраивать root, SSH, Netplan или PostgreSQL перед запуском. Файл `local.yml` задаёт параметры конкретной ноды и игнорируется Git.
 
 На Windows вывести **открытый** ключ:
 
@@ -165,14 +164,14 @@ sudo reboot
 ```sshconfig
 Host master1
     HostName 192.168.0.33
-    User admin
+    User ubuntu
     Port 22
     ServerAliveInterval 60
     ServerAliveCountMax 3
 
-Host master1-admin
+Host master1-ubuntu
     HostName 127.0.0.1
-    User admin
+    User ubuntu
     Port 2222
 
 Host master1-root

@@ -3,7 +3,6 @@ nat_interface: enp0s3
 bridge_interface: enp0s8
 bridge_address: 192.168.0.33/24
 postgres_allowed_subnet: 192.168.0.0/24
-admin_password: admin
 root_password: root
 postgres_password: admin
 ssh_public_keys: []

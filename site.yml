@@ -107,8 +107,8 @@
     - name: Назначить владельца архива исходников
       ansible.builtin.file:
         path: '{{ postgres_archive }}'
-        owner: admin
-        group: admin
+        owner: ubuntu
+        group: ubuntu
         mode: '0644'
 
     - name: Распаковать исходники PostgreSQL
@@ -116,9 +116,23 @@
         src: '{{ postgres_archive }}'
         dest: /usr/local/src
         remote_src: true
-        owner: admin
-        group: admin
+        owner: ubuntu
+        group: ubuntu
         creates: '{{ postgres_source }}/configure'
+
+    - name: Проверить владельца существующего каталога исходников
+      ansible.builtin.stat:
+        path: '{{ postgres_source }}'
+        get_checksum: false
+      register: postgres_source_owner
+
+    - name: Назначить ubuntu владельцем ранее распакованных исходников
+      ansible.builtin.file:
+        path: '{{ postgres_source }}'
+        owner: ubuntu
+        group: ubuntu
+        recurse: true
+      when: postgres_source_owner.stat.pw_name | default('') != 'ubuntu'
 
     - name: Проверить параметры предыдущей сборки
       ansible.builtin.slurp:
@@ -144,17 +158,17 @@
           ansible.builtin.shell: 'if [ -f GNUmakefile ]; then make distclean; fi'
           args:
             chdir: '{{ postgres_source }}'
-          become_user: admin
+          become_user: ubuntu
         - name: Настроить сборку PostgreSQL
           ansible.builtin.command:
             argv: "{{ ['./configure'] + postgres_configure_flags }}"
             chdir: '{{ postgres_source }}'
-          become_user: admin
+          become_user: ubuntu
         - name: Выполнить make world-bin, включая contrib и PL/Python
           ansible.builtin.command:
             argv: ['make', '-j{{ ansible_facts.processor_vcpus }}', 'world-bin']
             chdir: '{{ postgres_source }}'
-          become_user: admin
+          become_user: ubuntu
         - name: Проверить наличие ранее установленной службы
           ansible.builtin.stat:
             path: /etc/systemd/system/postgresql-18.service

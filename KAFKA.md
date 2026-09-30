@@ -21,8 +21,7 @@ Kafka распаковывается из готового `.tgz`; компил�
 | Компонент | Значение |
 | --- | --- |
 | Имя ВМ и hostname Ubuntu | `master2` |
-| Исходный пользователь Ubuntu | `ubuntu`, пароль `ubuntu` |
-| Пользователь Ubuntu для SSH и sudo | `admin`, пароль `admin`, sudo без пароля |
+| Пользователь Ubuntu для SSH и sudo | `ubuntu`, пароль `ubuntu`, создаётся при установке ОС; sudo без пароля после настройки |
 | Root Ubuntu | пароль `root`, SSH по ключу и паролю |
 | Адаптер 1 | NAT, DHCP на `enp0s3` |
 | Проброс SSH | `127.0.0.1:2223` → порт `22` гостя |
@@ -179,30 +178,29 @@ ip -br address
 ip route
 ```
 
-### 4. Admin, root и sudo
+### 4. Ubuntu, root и sudo
 
-Создать пользователя `admin`; в диалоге указать пароль `admin`:
+Использовать пользователя `ubuntu`, созданного при установке ОС, с паролем `ubuntu`. Настроить его группу sudo и пароль root:
 
 ```bash
-sudo adduser admin
-sudo usermod -aG sudo admin
+sudo usermod -aG sudo ubuntu
 sudo passwd root
 ```
 
 Для root задать пароль `root`. Настроить sudo:
 
 ```bash
-sudo visudo -f /etc/sudoers.d/90-lab-admin
+sudo visudo -f /etc/sudoers.d/90-lab-ubuntu
 ```
 
 Содержимое:
 
 ```text
-admin ALL=(ALL) NOPASSWD: ALL
+ubuntu ALL=(ALL) NOPASSWD: ALL
 ```
 
 ```bash
-sudo chmod 440 /etc/sudoers.d/90-lab-admin
+sudo chmod 440 /etc/sudoers.d/90-lab-ubuntu
 ```
 
 ### 5. Открытый ключ Windows и SSH
@@ -215,20 +213,16 @@ Get-Content "$env:USERPROFILE\.ssh\id_ed25519.pub"
 
 Если ключа ещё нет, сначала выполнить `ssh-keygen -t ed25519`. Закрытый `id_ed25519` остаётся на Windows.
 
-В консоли Ubuntu создать файл для admin и вставить в него всю строку открытого ключа:
+В консоли Ubuntu создать файл для `ubuntu` и вставить в него всю строку открытого ключа:
 
 ```bash
-sudo install -d -m 700 -o admin -g admin /home/admin/.ssh
-sudo nano /home/admin/.ssh/authorized_keys
-sudo chown admin:admin /home/admin/.ssh/authorized_keys
-sudo chmod 600 /home/admin/.ssh/authorized_keys
-sudo install -d -m 700 /root/.ssh
-sudo cp /home/admin/.ssh/authorized_keys /root/.ssh/authorized_keys
-sudo chmod 600 /root/.ssh/authorized_keys
 sudo install -d -m 700 -o ubuntu -g ubuntu /home/ubuntu/.ssh
-sudo cp /home/admin/.ssh/authorized_keys /home/ubuntu/.ssh/authorized_keys
+sudo nano /home/ubuntu/.ssh/authorized_keys
 sudo chown ubuntu:ubuntu /home/ubuntu/.ssh/authorized_keys
 sudo chmod 600 /home/ubuntu/.ssh/authorized_keys
+sudo install -d -m 700 /root/.ssh
+sudo cp /home/ubuntu/.ssh/authorized_keys /root/.ssh/authorized_keys
+sudo chmod 600 /root/.ssh/authorized_keys
 sudo nano /etc/ssh/sshd_config.d/00-lab.conf
 ```
 
@@ -434,7 +428,7 @@ bash bootstrap-kafka.sh
 
 При запросе sudo ввести пароль `ubuntu`. Скрипт устанавливает недостающие Ansible и `passlib`, задаёт локаль `C.UTF-8` и запускает `kafka.yml` от root через sudo. Для Kafka используются встроенные модули Ansible: коллекция `community.postgresql` не требуется.
 
-Плейбук выполняет этапы ручного варианта: hostname, локаль и синхронизацию времени, отдельные идентификаторы клона, admin/root, sudo, ключи SSH, Netplan, зеркало Ubuntu, Java, загрузка готового дистрибутива, конфигурация Kafka, первичная инициализация KRaft и служба. PostgreSQL на `master2` не устанавливается.
+Плейбук выполняет этапы ручного варианта: hostname, локаль и синхронизацию времени, отдельные идентификаторы клона, ubuntu/root, sudo, ключи SSH, Netplan, зеркало Ubuntu, Java, загрузка готового дистрибутива, конфигурация Kafka, первичная инициализация KRaft и служба. PostgreSQL на `master2` не устанавливается.
 
 Если архив предварительно передан через FileZilla в `/usr/local/src/kafka_2.13-4.3.1.tgz`, скачивание пропускается. Автоматическая загрузка сохраняется сначала в `.part` и после успешного завершения переименовывается; прерванную загрузку можно возобновить повторным запуском.
 
@@ -465,14 +459,14 @@ bash bootstrap-kafka.sh
 ```sshconfig
 Host master2
     HostName 192.168.0.34
-    User admin
+    User ubuntu
     Port 22
     ServerAliveInterval 60
     ServerAliveCountMax 3
 
-Host master2-admin
+Host master2-ubuntu
     HostName 127.0.0.1
-    User admin
+    User ubuntu
     Port 2223
 
 Host master2-root
@@ -485,7 +479,7 @@ Host master2-root
 
 ```powershell
 ssh master2
-ssh master2-admin
+ssh master2-ubuntu
 ssh master2-root
 ```
 
@@ -499,7 +493,7 @@ ssh-keygen -R "[127.0.0.1]:2223"
 ssh-keygen -R "[localhost]:2223"
 ```
 
-При первом подключении принять ключ нового сервера. В VS Code использовать **Remote-SSH: Connect to Host... → master2** или `master2-admin` для NAT.
+При первом подключении принять ключ нового сервера. В VS Code использовать **Remote-SSH: Connect to Host... → master2** или `master2-ubuntu` для NAT.
 
 ### FileZilla
 

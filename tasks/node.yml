@@ -63,14 +63,12 @@
   failed_when: "'en_US.utf8' not in generated_locales.stdout_lines"
   tags: locales
 
-- name: Создать пользователя Ubuntu admin
+- name: Настроить группу sudo для пользователя ubuntu
   ansible.builtin.user:
-    name: admin
+    name: ubuntu
     shell: /bin/bash
     groups: sudo
     append: true
-    password: "{{ admin_password | password_hash('sha512', 'pgLabAdmin2026') }}"
-  no_log: true
 
 - name: Установить учебный пароль root
   ansible.builtin.user:
@@ -78,10 +76,10 @@
     password: "{{ root_password | password_hash('sha512', 'pgLabRoot2026') }}"
   no_log: true
 
-- name: Разрешить admin выполнять sudo без пароля
+- name: Разрешить ubuntu выполнять sudo без пароля
   ansible.builtin.copy:
-    dest: /etc/sudoers.d/90-lab-admin
-    content: "admin ALL=(ALL) NOPASSWD: ALL\n"
+    dest: /etc/sudoers.d/90-lab-ubuntu
+    content: "ubuntu ALL=(ALL) NOPASSWD: ALL\n"
     owner: root
     group: root
     mode: '0440'
@@ -95,7 +93,6 @@
     group: '{{ item.user }}'
     mode: '0700'
   loop:
-    - { user: admin, home: /home/admin }
     - { user: root, home: /root }
     - { user: ubuntu, home: /home/ubuntu }
 
@@ -109,7 +106,6 @@
     marker: '# {mark} КЛЮЧИ УЧЕБНОЙ НОДЫ'
     block: "{{ ssh_public_keys | join('\n') }}"
   loop:
-    - { user: admin, home: /home/admin }
     - { user: root, home: /root }
     - { user: ubuntu, home: /home/ubuntu }
 

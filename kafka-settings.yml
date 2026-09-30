@@ -3,7 +3,6 @@ nat_interface: enp0s3
 bridge_interface: enp0s8
 bridge_address: 192.168.0.34/24
 node_netplan_path: /etc/netplan/01-netcfg.yaml
-admin_password: admin
 root_password: root
 ssh_public_keys: []
 ubuntu_apt_mirror: https://mirror.yandex.ru/ubuntu/
