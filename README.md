@@ -259,6 +259,10 @@ sudo -u postgres /opt/postgresql/bin/psql -d postgres -c '\dx'
 sudo -u postgres /opt/postgresql/bin/psql -d postgres -c 'SHOW shared_preload_libraries;'
 ```
 
+### Копии репозитория, созданные до удаления архива
+
+Архив PostgreSQL удалён также из истории Git. Если старая копия больше не обновляется командой `git pull --ff-only`, клонировать текущий репозиторий в новый каталог и перенести туда свой `local.yml` (для Kafka — `local-kafka.yml`). Установленная служба и данные базы от этого не меняются.
+
 ## Состав репозитория
 
 - `bootstrap.sh` — установка коллекции и запуск Ansible;
